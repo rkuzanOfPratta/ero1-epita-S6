@@ -11,13 +11,12 @@ Python 3.10+ avec les paquets suivants :
 osmnx>=2.0
 networkx>=3.0
 matplotlib>=3.5
-folium>=0.14
 scipy>=1.9
 ```
 
 Installation :
 ```bash
-pip install osmnx networkx matplotlib folium scipy
+pip install osmnx networkx matplotlib scipy
 ```
 
 ## Structure du projet
@@ -77,9 +76,9 @@ Pour chaque arrondissement, le dossier `districts/<nom>/results/` contient :
 
 | Fichier | Description |
 |---|---|
-| `carte_urgences.html` | Circuit interactif – scénario urgences |
-| `carte_economique.html` | Circuit interactif – scénario économique |
-| `carte_residentiel.html` | Circuit interactif – scénario résidentiel |
+| `carte_urgences.png` | Carte statique – scénario urgences |
+| `carte_economique.png` | Carte statique – scénario économique |
+| `carte_residentiel.png` | Carte statique – scénario résidentiel |
 | `cout_flotte.png` | Courbe coût total vs nombre de véhicules |
 | `comparaison_scenarios.png` | Histogramme de comparaison des 3 scénarios |
 | `resultats.json` | Données brutes (réseau, circuit, coûts, métriques) |
