@@ -41,6 +41,49 @@ def charger_graphe_local(chemin: str) -> nx.MultiDiGraph:
     return nx.read_graphml(chemin, node_type=int)
 
 
+def charger_pois_urgence(district_key: str) -> list:
+    """
+    Télécharge les POI 'services d'urgence' (hôpitaux, casernes, police)
+    pour un arrondissement, en coordonnées projetées (mêmes UTM que le graphe).
+    Utilisé par le scénario 1 pour pondérer les arcs proches de ces services.
+    """
+    place = DISTRICTS[district_key]
+    tags = {
+        "amenity": ["hospital", "fire_station", "police", "clinic"],
+    }
+    try:
+        gdf = ox.features_from_place(place, tags)
+    except Exception:
+        return []
+    if gdf.empty:
+        return []
+    gdf = ox.projection.project_gdf(gdf)
+    return [(geom.centroid.x, geom.centroid.y) for geom in gdf.geometry]
+
+
+def charger_pois_commerce(district_key: str) -> list:
+    """
+    Télécharge les POI 'commerces / emploi' (shop=*, amenity=marketplace,
+    office=*) pour un arrondissement, en coordonnées projetées.
+    Utilisé par le scénario 2 pour pondérer les arcs proches des zones
+    commerciales et d'emploi, au lieu de réutiliser les poids du scénario 1.
+    """
+    place = DISTRICTS[district_key]
+    tags = {
+        "shop": True,
+        "amenity": ["marketplace", "bank"],
+        "office": True,
+    }
+    try:
+        gdf = ox.features_from_place(place, tags)
+    except Exception:
+        return []
+    if gdf.empty:
+        return []
+    gdf = ox.projection.project_gdf(gdf)
+    return [(geom.centroid.x, geom.centroid.y) for geom in gdf.geometry]
+
+
 def stats_graphe(G: nx.MultiDiGraph) -> dict:
     """Statistiques descriptives du réseau routier."""
     longueurs = [d.get("length", 0) for _, _, d in G.edges(data=True)]

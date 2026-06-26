@@ -15,7 +15,10 @@ import sys
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-from src.fetch_data  import charger_graphe, stats_graphe, DISTRICTS
+from src.fetch_data  import (
+    charger_graphe, stats_graphe, DISTRICTS,
+    charger_pois_urgence, charger_pois_commerce,
+)
 from src.chinese_postman import solve_directed_cpp, circuit_stats
 from src.cost_model  import cout_flotte, rapport_cout
 from src.scenarios   import SCENARIOS, edge_priority_map, compute_scenario_metrics
@@ -50,10 +53,33 @@ def traiter_district(district_key: str, n_vehicules: int, dossier_out: str) -> d
     flotte = cout_flotte(dist_totale_km, n_vehicules)
     print(rapport_cout(flotte, district_key))
 
+    # --- POI géospatiaux (distinguent S1 "urgences" de S2 "économique") ---
+    print("Téléchargement des POI (hôpitaux/casernes, commerces)...")
+    try:
+        pois_urgence = charger_pois_urgence(district_key)
+    except Exception as e:
+        print(f"  POI urgences indisponibles ({e}), repli sur le barème highway seul.")
+        pois_urgence = []
+    try:
+        pois_commerce = charger_pois_commerce(district_key)
+    except Exception as e:
+        print(f"  POI commerces indisponibles ({e}), repli sur le barème highway seul.")
+        pois_commerce = []
+    print(f"  {len(pois_urgence)} POI urgences, {len(pois_commerce)} POI commerces")
+
+    pois_par_scenario = {
+        "urgences": pois_urgence,
+        "economique": pois_commerce,
+        "residentiel": None,
+    }
+
     # --- Scénarios ---
     metriques_scenarios = []
     for scenario_key in SCENARIOS:
-        m = compute_scenario_metrics(circuit, G, scenario_key)
+        m = compute_scenario_metrics(
+            circuit, G, scenario_key,
+            pois=pois_par_scenario.get(scenario_key),
+        )
         metriques_scenarios.append(m)
         t50 = f"{m['temps_50pct_h']:.2f}h" if m['temps_50pct_h'] is not None else "N/A"
         t100 = f"{m['temps_100pct_h']:.2f}h" if m.get('temps_100pct_h') is not None else "N/A"
