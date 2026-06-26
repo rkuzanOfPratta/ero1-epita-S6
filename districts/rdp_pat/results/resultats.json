@@ -1,0 +1,55 @@
+{
+  "district": "rdp_pat",
+  "reseau": {
+    "noeuds": 1927,
+    "arcs": 5215,
+    "longueur_totale_km": 715.7859974548178,
+    "longueur_moy_arc_m": 137.25522482355086
+  },
+  "circuit": {
+    "n_arcs": 5694,
+    "distance_totale_km": 775.8457738698835,
+    "distance_vide_km": 78.97950909632466,
+    "couverture_pct": 99.52811639795517
+  },
+  "flotte": {
+    "n_vehicules": 3,
+    "dist_par_vehicule_km": 258.61525795662783,
+    "duree_par_vehicule_h": 25.861525795662782,
+    "sup_par_vehicule_h": 17.861525795662782,
+    "cout_par_vehicule": 816.4967672866522,
+    "cout_total_flotte": 2449.4903018599566
+  },
+  "scenarios": [
+    {
+      "scenario": "Urgences & Sécurité publique",
+      "arcs_haute_prio_total": 635,
+      "arcs_haute_prio_degages": 623,
+      "pct_hp_degages": 98.11023622047243,
+      "temps_50pct_h": 48.20483758729564,
+      "temps_80pct_h": 67.89907515295852,
+      "temps_100pct_h": null,
+      "distance_totale_km": 770.0444497379796
+    },
+    {
+      "scenario": "Mobilité économique",
+      "arcs_haute_prio_total": 635,
+      "arcs_haute_prio_degages": 623,
+      "pct_hp_degages": 98.11023622047243,
+      "temps_50pct_h": 48.20483758729564,
+      "temps_80pct_h": 67.89907515295852,
+      "temps_100pct_h": null,
+      "distance_totale_km": 770.0444497379796
+    },
+    {
+      "scenario": "Équité résidentielle",
+      "arcs_haute_prio_total": 3907,
+      "arcs_haute_prio_degages": 3907,
+      "pct_hp_degages": 100.0,
+      "temps_50pct_h": 37.82574460463742,
+      "temps_80pct_h": 59.610422016068675,
+      "temps_100pct_h": 76.8628408537944,
+      "distance_totale_km": 770.0444497379796
+    }
+  ]
+}

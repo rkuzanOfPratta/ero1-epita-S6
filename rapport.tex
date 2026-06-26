@@ -1,0 +1,369 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{geometry}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{array}
+\usepackage{hyperref}
+
+\geometry{margin=2cm, top=2.2cm, bottom=2.2cm}
+\hypersetup{colorlinks=true, linkcolor=blue, urlcolor=blue}
+
+\title{\textbf{Optimisation hivernale du d\'eneigement de Montr\'eal}\\[0.4em]
+       \large Rapport ERO1 --- Formalisation et analyse}
+\author{Rayan Kheroua \and Rayan Tail \and Arsan Abdi \and Yazid Tarmoul \and Lucas Defaud\\[0.3em]
+        \normalsize Groupe 9 --- APPING1 --- EPITA}
+\date{Juin 2026}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\newpage
+
+%=============================================================
+\section{Formalisation du probl\`eme et m\'ethode de r\'esolution}
+%=============================================================
+
+\subsection{Donn\'ees et p\'erim\`etre}
+
+Les donn\'ees utilis\'ees proviennent d'OpenStreetMap (OSM), t\'el\'echarg\'ees
+via la biblioth\`eque Python OSMnx~\cite{osmnx}. Pour chaque arrondissement,
+on extrait le r\'eseau routier carrossable (\texttt{network\_type="drive"}),
+simplifi\'e topologiquement et projet\'e en coordonn\'ees UTM (distances en
+m\`etres exactes). Les param\`etres \'economiques fournis sont :
+
+\begin{itemize}
+  \item Co\^ut fixe par v\'ehicule et par jour : $500$\,\$/jour
+  \item Co\^ut kilom\'etrique : $1{,}1$\,\$/km
+  \item Co\^ut horaire (8 premi\`eres heures) : $1{,}1$\,\$/h
+  \item Co\^ut horaire (au-del\`a de 8\,h) : $1{,}3$\,\$/h
+  \item Vitesse moyenne : $10$\,km/h
+\end{itemize}
+
+Les quatre arrondissements \'etudi\'es sont pr\'esent\'es dans le Tableau~1.
+
+\begin{center}
+\textbf{Tableau 1} --- R\'eseaux routiers des arrondissements\\[0.5em]
+\begin{tabular}{|l|r|r|r|}
+\hline
+\textbf{Arrondissement} & \textbf{N\oe uds} & \textbf{Arcs} & \textbf{Longueur (km)} \\
+\hline
+Outremont                    &    236 &     598 &    71,1 \\
+Verdun                       &    305 &     779 &   102,2 \\
+Anjou                        &    737 &   1\,732 &   231,2 \\
+Rivi\`ere-des-Prairies--PAT  &  1\,927 &   5\,215 &   715,8 \\
+\hline
+\end{tabular}
+\end{center}
+
+\medskip
+\noindent\textbf{Contraintes prises en compte :}
+sens de circulation (graphe dirig\'e) ;
+obligation de parcourir chaque rue au moins une fois ;
+circuit ferm\'e.
+
+\noindent\textbf{Contraintes non prises en compte :}
+capacit\'e des engins, horaires de collecte, partage multi-v\'ehicules (VRP).
+
+\subsection{Hypoth\`eses et formalisation}
+
+Le r\'eseau routier est model\'e comme un graphe dirig\'e pond\'er\'e
+$G = (V,\, E,\, \ell)$ o\`u :
+\begin{itemize}
+  \item $V$ = ensemble des intersections (n\oe uds OSM),
+  \item $E \subseteq V \times V$ = ensemble des tron\c{c}ons routiers (arcs),
+  \item $\ell : E \to \mathbb{R}_+$ = longueur en m\`etres de chaque arc.
+\end{itemize}
+
+\noindent\textbf{Variable de d\'ecision :}
+$x_e \in \mathbb{N},\; x_e \geq 1$ pour tout $e \in E$ (nombre de passages
+sur l'arc $e$).
+
+\noindent\textbf{Fonction objectif :}
+\begin{equation}
+  \min \sum_{e \in E} x_e \cdot \ell(e)
+\end{equation}
+
+\noindent\textbf{Contrainte d'eul\'erianit\'e :} pour que le circuit soit ferm\'e,
+\begin{equation}
+  \forall v \in V : \sum_{(v,w)\in E} x_{(v,w)} \;=\; \sum_{(u,v)\in E} x_{(u,v)}
+\end{equation}
+
+Ce probl\`eme est le \textbf{Probl\`eme du Postier Chinois Dirig\'e (PPC-D)},
+r\'esolu en temps polynomial.
+
+\subsection{M\'ethode de r\'esolution}
+
+La r\'esolution se d\'eroule en trois \'etapes :
+
+\begin{enumerate}
+  \item \textbf{Extraction de la composante fortement connexe (CFC) principale.}
+    Un circuit eul\'erien n'existe que sur un graphe fortement connexe.
+    On retient la plus grande CFC ($\geq 97\,\%$ du r\'eseau dans tous les cas).
+
+  \item \textbf{Calcul des d\'es\'equilibres et flot \`a co\^ut minimum.}
+    Pour chaque n\oe ud $v$, on d\'efinit le d\'es\'equilibre
+    $b_v = \deg^+(v) - \deg^-(v)$ (calculé sur le multigraphe original).
+    Les n\oe uds avec $b_v > 0$ sont des \textit{puits} ;
+    ceux avec $b_v < 0$ sont des \textit{sources}.
+    On construit un r\'eseau de flot $F$ reliant chaque source \`a chaque puits,
+    avec un co\^ut \'egal au plus court chemin dans le graphe simplifi\'e $H$.
+    La r\'esolution via \texttt{nx.min\_cost\_flow} (algorithme des plus courts
+    chemins successifs) donne le multiensemble d'arcs de \textit{deadhead}
+    (trajets \`a vide) \`a ajouter pour \'equilibrer le graphe.
+
+  \item \textbf{Circuit eul\'erien.}
+    Sur le graphe augment\'e, le circuit est calcul\'e par l'algorithme de
+    Hierholzer en $O(|E|)$.
+\end{enumerate}
+
+\noindent\textbf{Complexit\'e.}
+La phase de flot est en $O(|V|^2 \log|V| \cdot |E|)$ dans le pire cas,
+tractable pour les tailles consid\'er\'ees.
+
+\medskip
+\noindent\textbf{Indicateurs g\'en\'eriques :}
+\begin{itemize}
+  \item Distance totale du circuit $D_{\text{tot}}$ (km)
+  \item Distance de deadhead $D_{\text{vide}}$ (km) et ratio $D_{\text{vide}}/D_{\text{tot}}$
+  \item Taux de couverture $C = |\text{arcs parcourus}| / |E| \times 100\,\%$
+  \item Co\^ut total $C_{\text{tot}}$ (\$) selon le mod\`ele de co\^ut
+\end{itemize}
+
+\subsection{Limites du mod\`ele}
+
+\begin{itemize}
+  \item \textbf{CFC partielle} : les arcs hors de la CFC (culs-de-sac) ne sont
+    pas couverts, d'o\`u une couverture l\'eg\`erement inf\'erieure \`a 100\,\%.
+  \item \textbf{Un seul v\'ehicule par circuit} : le partage entre v\'ehicules
+    introduit un probl\`eme VRP NP-difficile.
+  \item \textbf{Vitesse constante} : trafic, feux et densit\'e de neige ignor\'es.
+  \item \textbf{Priorisation bas\'ee sur le type de route} uniquement (pas de
+    donn\'ees POI sur les h\^opitaux ou commerces).
+\end{itemize}
+
+%=============================================================
+\section{D\'efinition des trois sc\'enarios de priorisation}
+%=============================================================
+
+\subsection{Sc\'enario 1 --- Urgences et s\'ecurit\'e publique}
+
+\noindent\textbf{Argumentaire.}
+Lors d'une temp\^ete, l'acc\`es des v\'ehicules d'urgence est prioritaire.
+Selon Sant\'e Montr\'eal~\cite{sante}, les d\'elais d'intervention augmentent de
+40\,\% lors d'\'episodes neigeux. Les art\`eres primaires et secondaires
+constituent le r\'eseau d'acc\`es aux h\^opitaux et casernes.
+
+\noindent\textbf{D\'efinition des priorit\'es (attribut OSM \texttt{highway}) :}
+\begin{itemize}
+  \item Priorit\'e 3 (haute) : \texttt{primary}, \texttt{secondary}
+  \item Priorit\'e 2 (moyenne) : \texttt{tertiary}
+  \item Priorit\'e 1 (basse) : \texttt{residential}, \texttt{service}
+\end{itemize}
+
+\noindent\textbf{B\'en\'efices attendus :}
+r\'eduction du d\'elai d'intervention des secours ;
+maintien de la cha\^ine de soins.
+\textbf{Cibles :} services d'urgence, patients.
+\textbf{Risques :} les rues r\'esidentielles sont d\'egag\'ees en dernier.
+
+\noindent\textbf{Indicateurs sp\'ecifiques :}
+temps pour d\'egager 50\,\% et 100\,\% des axes primaires/secondaires.
+
+\subsection{Sc\'enario 2 --- Mobilit\'e \'economique}
+
+\noindent\textbf{Argumentaire.}
+Les pertes \'economiques dues aux chutes de neige repr\'esentent plusieurs
+centaines de M\$ par jour au Qu\'ebec~\cite{statcan}. Le r\'eseau commercial
+montr\'ealais, concentr\'e sur les art\`eres principales, g\'en\`ere l'essentiel
+de l'activit\'e \'economique. D\'egager les axes commerciaux et les couloirs de
+transport en commun en priorit\'e limite l'impact sur les commerces.
+
+\noindent\textbf{D\'efinition des priorit\'es :}
+\begin{itemize}
+  \item Priorit\'e 3 (haute) : \texttt{primary}, \texttt{secondary}
+    (axes commerciaux et de transit)
+  \item Priorit\'e 2 (moyenne) : \texttt{tertiary} (voies desservant les zones
+    d'emploi)
+  \item Priorit\'e 1 (basse) : voies locales r\'esidentielles
+\end{itemize}
+
+\noindent\textbf{B\'en\'efices attendus :}
+r\'eduction des pertes \'economiques ; maintien du transport en commun.
+\textbf{Cibles :} travailleurs, commer\c{c}ants, usagers des bus.
+\textbf{Risques :} in\'egalit\'e g\'eographique (quartiers r\'esidentiels
+\'eloign\'es d\'elaiss\'es).
+
+\noindent\textbf{Indicateurs sp\'ecifiques :}
+temps pour d\'egager 80\,\% des axes commerciaux ;
+nombre d'arr\^ets de bus accessibles apr\`es 3\,h.
+
+\subsection{Sc\'enario 3 --- \'Equit\'e r\'esidentielle}
+
+\noindent\textbf{Argumentaire.}
+Le rapport Lowrie (2025)~\cite{lowrie} souligne que les quartiers r\'esidentiels
+sont syst\'ematiquement d\'eneig\'es apr\`es les grands axes, laissant les
+pi\'etons (enfants, personnes \^ag\'ees, PMR) dans des conditions dangereuses.
+L'INSPQ~\cite{inspeq} recommande de prioriser les rues r\'esidentielles pr\`es
+des \'ecoles et CHSLD pour r\'eduire les accidents hivernaux de $-15\,\%$.
+
+\noindent\textbf{D\'efinition des priorit\'es (ordre invers\'e) :}
+\begin{itemize}
+  \item Priorit\'e 3 (haute) : \texttt{residential}, \texttt{living\_street}
+  \item Priorit\'e 2 (moyenne) : \texttt{tertiary}, \texttt{unclassified},
+    \texttt{service}
+  \item Priorit\'e 1 (basse) : \texttt{primary}, \texttt{secondary}
+    (couvertes prioritairement par le sel)
+\end{itemize}
+
+\noindent\textbf{B\'en\'efices attendus :}
+r\'eduction des accidents pi\'etons hivernaux ;
+accessibilit\'e des \'ecoles et garderies.
+\textbf{Cibles :} r\'esidents pi\'etons, personnes \^ag\'ees, enfants.
+\textbf{Risques :} d\'elai accru pour les art\`eres commerciales et urgences.
+
+\noindent\textbf{Indicateurs sp\'ecifiques :}
+temps pour d\'egager 50\,\% et 100\,\% des rues r\'esidentielles ;
+nombre de quartiers r\'esidentiels couverts apr\`es 6\,h.
+
+%=============================================================
+\section{Analyse des r\'esultats}
+%=============================================================
+
+\subsection{R\'esultats par arrondissement}
+
+\begin{center}
+\textbf{Tableau 2} --- R\'esultats du PPC-D\\[0.5em]
+\begin{tabular}{|l|r|r|r|r|}
+\hline
+\textbf{Arrondissement} & \textbf{Circuit (km)} & \textbf{D. vide (km)} & \textbf{Ratio (\%)} & \textbf{Couv. (\%)} \\
+\hline
+Outremont              &   80,5 & 11,3 & 14,1 & 97,3 \\
+Verdun                 &  110,5 &  8,6 &  7,8 & 99,1 \\
+Anjou                  &  263,3 & 44,4 & 16,9 & 98,4 \\
+Rivi\`ere-des-Prairies--PAT &  775,8 & 79,0 & 10,2 & 99,5 \\
+\hline
+\end{tabular}
+\end{center}
+
+\medskip
+\begin{center}
+\textbf{Tableau 3} --- Co\^uts op\'erationnels (3 v\'ehicules par arrondissement)\\[0.5em]
+\begin{tabular}{|l|r|r|r|}
+\hline
+\textbf{Arrondissement} & \textbf{Distance/v\'eh. (km)} & \textbf{Dur\'ee/v\'eh. (h)} & \textbf{Co\^ut total (\$)} \\
+\hline
+Outremont              &  26,8 &  2,7 &  1\,597 \\
+Verdun                 &  36,8 &  3,7 &  1\,634 \\
+Anjou                  &  87,8 &  8,8 &  1\,819 \\
+Rivi\`ere-des-Prairies--PAT & 258,6 & 25,9 &  2\,449 \\
+\hline
+\textbf{Total 4 arrondissements} & & & \textbf{7\,499} \\
+\hline
+\end{tabular}
+\end{center}
+
+\noindent\textbf{Note :} \`A Anjou ($0{,}8$\,h sup.) et RDP-PAT ($17{,}9$\,h sup.),
+les v\'ehicules d\'epassent les 8\,h normales. Pour RDP-PAT, il est fortement
+recommand\'e d'augmenter la flotte \`a 10 v\'ehicules, ce qui r\'eduit le temps
+\`a $\approx 7{,}8$\,h/v\'ehicule (sans heures suppl\'ementaires) pour un
+co\^ut total de $\approx 9\,500$\,\$.
+
+\medskip
+\noindent\textbf{Mod\`ele de co\^ut global.}
+Pour $n$ v\'ehicules se partageant un circuit de $D$\,km :
+\begin{equation}
+  C(n) = n \cdot \left[500 + 1{,}1 \cdot \frac{D}{n}
+  + f\!\left(\frac{D}{10n}\right)\right]
+  \quad\text{o\`u}\quad
+  f(t) = 1{,}1\,\min(t,8) + 1{,}3\,\max(t-8,0)
+\end{equation}
+Le co\^ut marginal d'un v\'ehicule suppl\'ementaire vaut $500$\,\$ (fixe) moins
+l'\'economie r\'ealis\'ee sur les heures suppl\'ementaires --- profitable d\`es
+que la dur\'ee/v\'ehicule d\'epasse 8\,h.
+
+\subsection{Comparaison des sc\'enarios}
+
+\begin{center}
+\textbf{Tableau 4} --- Temps (h) pour d\'egager 50\,\% et 80\,\% des arcs haute priorit\'e\\[0.5em]
+\begin{tabular}{|l|l|r|r|r|r|}
+\hline
+\textbf{Sc\'enario} & \textbf{M\'etrique} & \textbf{Outremont} & \textbf{Verdun} & \textbf{Anjou} & \textbf{RDP--PAT} \\
+\hline
+S1 -- Urgences     & 50\,\% HP (h) &  4,7 &  5,2 & 17,4 & 48,2 \\
+                   & 80\,\% HP (h) &  7,2 &  8,7 & 21,6 & 67,9 \\
+\hline
+S2 -- \'Economique & 50\,\% HP (h) &  4,7 &  5,2 & 17,4 & 48,2 \\
+                   & 80\,\% HP (h) &  7,2 &  8,7 & 21,6 & 67,9 \\
+\hline
+S3 -- R\'esidentiel & 50\,\% HP (h) &  4,0 &  3,9 &  9,2 & 37,8 \\
+                   & 80\,\% HP (h) &  6,3 &  8,8 & 14,8 & 59,6 \\
+\hline
+\end{tabular}
+\end{center}
+
+\subsection{Projection des effets sur les habitants}
+
+\noindent\textbf{Sc\'enario 1 (Urgences).}
+Les art\`eres primaires et secondaires ($\approx 15\,\%$ des arcs) assurent
+l'acc\`es \`a tous les services d'urgence. Elles sont d\'egag\'ees \`a 100\,\%
+\`a Outremont en $\approx 8$\,h avec 3 v\'ehicules. \`A Anjou et RDP-PAT,
+les temps d\'epassent 17\,h pour 50\,\% des axes prioritaires, ce qui justifie
+d'augmenter la flotte dans les grands arrondissements.
+
+\noindent\textbf{Sc\'enario 2 (\'Economique).}
+Les indicateurs sont identiques \`a S1 car les deux sc\'enarios utilisent la
+m\^eme classification \texttt{highway}. Une am\'elioration serait d'utiliser
+des buffers g\'eospatiaux autour des zones commerciales (donn\'ees POI OSM) pour
+diff\'erencier S2 de S1. La principale valeur de S2 est donc conceptuelle :
+justifier la priorit\'e par l'impact \'economique plut\^ot que par la s\'ecurit\'e.
+
+\noindent\textbf{Sc\'enario 3 (\'Equit\'e r\'esidentielle).}
+Les rues r\'esidentielles constituent 65--75\,\% du r\'eseau. S3 d\'egage
+50\,\% des rues r\'esidentielles \textbf{15--25\,\% plus t\^ot} que S1/S2
+\`a Outremont et Verdun (4,0\,h vs 4,7\,h et 3,9\,h vs 5,2\,h). Ce gain
+est significatif pour les pi\'etons : chaque heure \'economis\'ee r\'eduit
+l'exposition au risque de chute sur la glace.
+Revers de la m\'edaille : les art\`eres sont d\'egag\'ees plus tard, ce qui
+peut g\^ener les navetteurs si les chasse-neige ne travaillent pas en parall\`ele
+avec les camions de sel.
+
+\noindent\textbf{Critique des sc\'enarios.}
+\begin{itemize}
+  \item S1 et S2 sont identiques dans l'impl\'ementation actuelle ;
+    des donn\'ees POI permettraient de les diff\'erencier.
+  \item S3 am\'eliore l'exp\'erience des r\'esidents pi\'etons au prix d'un l\'eger
+    retard sur les art\`eres, acceptable si celles-ci ont \'et\'e trait\'ees au sel.
+  \item Pour les grands arrondissements (Anjou, RDP-PAT), le mod\`ele \`a un seul
+    v\'ehicule est irr\'ealiste ; la priorit\'e devrait s'exprimer dans un
+    d\'ecoupage en zones (VRP) o\`u chaque v\'ehicule a sa propre priorit\'e
+    de quartier.
+\end{itemize}
+
+\begin{thebibliography}{9}
+\bibitem{osmnx}
+  B. Boeing,
+  \textit{OSMnx: New Methods for Acquiring, Constructing, Analyzing, and
+  Visualizing Complex Street Networks},
+  Computers, Environment and Urban Systems, vol.~65, 2017.
+\bibitem{statcan}
+  Statistique Canada,
+  \textit{Impact \'economique des intemp\'eries hivernales},
+  catalogue no~71-607, 2022.
+\bibitem{lowrie}
+  M. Lowrie,
+  \textit{Comment \c{c}a marche, le d\'eneigement et le d\'egla\c{c}age
+  \`a Montr\'eal ?},
+  Le Devoir, d\'ecembre 2025.
+\bibitem{sante}
+  Sant\'e Montr\'eal,
+  \textit{Urgences et conditions hivernales : retours d'exp\'erience},
+  rapport interne, 2019.
+\bibitem{inspeq}
+  INSPQ,
+  \textit{D\'eneigement et s\'ecurit\'e des pi\'etons : recommandations},
+  Institut national de sant\'e publique du Qu\'ebec, 2021.
+\end{thebibliography}
+
+\end{document}
